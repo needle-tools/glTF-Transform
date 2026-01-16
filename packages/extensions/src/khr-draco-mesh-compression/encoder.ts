@@ -37,6 +37,13 @@ export interface EncoderOptions {
 	method?: EncoderMethod;
 	quantizationBits?: { [key: string]: number };
 	quantizationVolume?: 'mesh' | 'scene' | bbox;
+	/**
+	 * Minimum vertex count for Draco compression. Primitives with fewer vertices
+	 * than this threshold will be skipped. Default: 0 (compress all primitives).
+	 * Tiny meshes often have poor compression ratios and may benefit from being
+	 * left uncompressed.
+	 */
+	minVertexCount?: number;
 }
 
 const DEFAULT_ENCODER_OPTIONS: EncoderOptions = {

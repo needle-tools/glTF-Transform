@@ -15,6 +15,13 @@ export interface DracoOptions {
 	quantizeTexcoord?: number;
 	quantizeGeneric?: number;
 	quantizationVolume?: 'mesh' | 'scene';
+	/**
+	 * Minimum vertex count for Draco compression. Primitives with fewer vertices
+	 * than this threshold will be skipped. Default: 0 (compress all primitives).
+	 * Tiny meshes often have poor compression ratios and may benefit from being
+	 * left uncompressed.
+	 */
+	minVertexCount?: number;
 }
 
 export const DRACO_DEFAULTS: Required<DracoOptions> = {
@@ -27,6 +34,7 @@ export const DRACO_DEFAULTS: Required<DracoOptions> = {
 	quantizeTexcoord: 12,
 	quantizeGeneric: 12,
 	quantizationVolume: 'mesh',
+	minVertexCount: 0,
 };
 
 /**
@@ -83,6 +91,7 @@ export function draco(_options: DracoOptions = DRACO_DEFAULTS): Transform {
 					GENERIC: options.quantizeGeneric,
 				},
 				quantizationVolume: options.quantizationVolume,
+				minVertexCount: options.minVertexCount,
 			});
 	});
 }

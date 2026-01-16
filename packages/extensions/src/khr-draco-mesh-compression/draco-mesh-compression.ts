@@ -268,7 +268,8 @@ export class KHRDracoMeshCompression extends Extension {
 		const logger = this.document.getLogger();
 		logger.debug(`[${KHR_DRACO_MESH_COMPRESSION}] Compression options: ${JSON.stringify(this._encoderOptions)}`);
 
-		const primitiveHashMap = listDracoPrimitives(this.document);
+		const minVertexCount = this._encoderOptions.minVertexCount ?? 0;
+		const primitiveHashMap = listDracoPrimitives(this.document, minVertexCount);
 		const primitiveEncodingMap = new Map<string, EncodedPrimitive>();
 
 		let quantizationVolume: bbox | 'mesh' = 'mesh';
@@ -391,13 +392,14 @@ export class KHRDracoMeshCompression extends Extension {
  * Returns a list of Primitives compatible with Draco compression. If any required preconditions
  * fail, and would break assumptions required for compression, this function will throw an error.
  */
-function listDracoPrimitives(doc: Document): Map<Primitive, string> {
+function listDracoPrimitives(doc: Document, minVertexCount: number = 0): Map<Primitive, string> {
 	const logger = doc.getLogger();
 	const included = new Set<Primitive>();
 	const excluded = new Set<Primitive>();
 
 	let nonIndexed = 0;
 	let nonTriangles = 0;
+	let tooSmall = 0;
 
 	// Support compressing only indexed, mode=TRIANGLES primitives.
 	for (const mesh of doc.getRoot().listMeshes()) {
@@ -408,6 +410,15 @@ function listDracoPrimitives(doc: Document): Map<Primitive, string> {
 			} else if (prim.getMode() !== Primitive.Mode.TRIANGLES) {
 				excluded.add(prim);
 				nonTriangles++;
+			} else if (minVertexCount > 0) {
+				// Check vertex count via POSITION attribute
+				const position = prim.getAttribute('POSITION');
+				if (position && position.getCount() < minVertexCount) {
+					excluded.add(prim);
+					tooSmall++;
+				} else {
+					included.add(prim);
+				}
 			} else {
 				included.add(prim);
 			}
@@ -422,6 +433,11 @@ function listDracoPrimitives(doc: Document): Map<Primitive, string> {
 	if (nonTriangles > 0) {
 		logger.warn(
 			`[${KHR_DRACO_MESH_COMPRESSION}] Skipping Draco compression of ${nonTriangles} non-TRIANGLES primitives.`,
+		);
+	}
+	if (tooSmall > 0) {
+		logger.info(
+			`[${KHR_DRACO_MESH_COMPRESSION}] Skipping Draco compression of ${tooSmall} primitives with fewer than ${minVertexCount} vertices.`,
 		);
 	}
 
