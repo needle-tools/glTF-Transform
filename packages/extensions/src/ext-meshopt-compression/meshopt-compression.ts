@@ -142,6 +142,13 @@ export class EXTMeshoptCompression extends Extension {
 	private _decoderFallbackBufferMap = new Map<Buffer, Buffer>();
 	private _encoder: typeof MeshoptEncoder | null = null;
 	private _encoderOptions: Required<EncoderOptions> = DEFAULT_ENCODER_OPTIONS;
+	private _accessorFilter?: (accessor: Accessor) => boolean;
+
+	/** Leaves excluded accessors in their ordinary glTF buffer views. */
+	public setAccessorFilter(filter: (accessor: Accessor) => boolean): this {
+		this._accessorFilter = filter;
+		return this;
+	}
 	private _encoderFallbackBuffer: Buffer | null = null;
 	private _encoderBufferViews: { [key: string]: EncodedBufferView } = {};
 	private _encoderBufferViewData: { [key: string]: Uint8Array[] } = {};
@@ -327,6 +334,7 @@ export class EXTMeshoptCompression extends Extension {
 		this._encoderBufferViewAccessors = {};
 
 		for (const accessor of this.document.getRoot().listAccessors()) {
+			if (this._accessorFilter && !this._accessorFilter(accessor)) continue;
 			// See: https://github.com/donmccurdy/glTF-Transform/pull/323#issuecomment-898791251
 			// Example: https://skfb.ly/6qAD8
 			if (getTargetPath(accessor) === 'weights') continue;

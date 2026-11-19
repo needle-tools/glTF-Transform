@@ -159,6 +159,13 @@ export class KHRDracoMeshCompression extends Extension {
 	private _decoderModule: DecoderModule | null = null;
 	private _encoderModule: EncoderModule | null = null;
 	private _encoderOptions: EncoderOptions = {};
+	private _primitiveFilter?: (primitive: Primitive) => boolean;
+
+	/** Limits compression to selected primitives. Their accessors must be independent of excluded primitives. */
+	public setPrimitiveFilter(filter: (primitive: Primitive) => boolean): this {
+		this._primitiveFilter = filter;
+		return this;
+	}
 
 	/** @hidden */
 	public install(key: string, dependency: unknown): this {
@@ -268,7 +275,7 @@ export class KHRDracoMeshCompression extends Extension {
 		const logger = this.document.getLogger();
 		logger.debug(`[${KHR_DRACO_MESH_COMPRESSION}] Compression options: ${JSON.stringify(this._encoderOptions)}`);
 
-		const primitiveHashMap = listDracoPrimitives(this.document);
+		const primitiveHashMap = listDracoPrimitives(this.document, this._primitiveFilter);
 		const primitiveEncodingMap = new Map<string, EncodedPrimitive>();
 
 		let quantizationVolume: bbox | 'mesh' = 'mesh';
@@ -391,7 +398,7 @@ export class KHRDracoMeshCompression extends Extension {
  * Returns a list of Primitives compatible with Draco compression. If any required preconditions
  * fail, and would break assumptions required for compression, this function will throw an error.
  */
-function listDracoPrimitives(doc: Document): Map<Primitive, string> {
+function listDracoPrimitives(doc: Document, filter?: (primitive: Primitive) => boolean): Map<Primitive, string> {
 	const logger = doc.getLogger();
 	const included = new Set<Primitive>();
 	const excluded = new Set<Primitive>();
@@ -402,7 +409,9 @@ function listDracoPrimitives(doc: Document): Map<Primitive, string> {
 	// Support compressing only indexed, mode=TRIANGLES primitives.
 	for (const mesh of doc.getRoot().listMeshes()) {
 		for (const prim of mesh.listPrimitives()) {
-			if (!prim.getIndices()) {
+			if (filter && !filter(prim)) {
+				excluded.add(prim);
+			} else if (!prim.getIndices()) {
 				excluded.add(prim);
 				nonIndexed++;
 			} else if (prim.getMode() !== Primitive.Mode.TRIANGLES) {
